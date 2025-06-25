@@ -1,19 +1,20 @@
 package com.example.chessapp;
 
 import javafx.fxml.FXML;
+import javafx.geometry.Point2D;
 import javafx.geometry.Rectangle2D;
+import javafx.scene.Cursor;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.Background;
-import javafx.scene.layout.BackgroundFill;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.StackPane;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class MainGameController {
+    public AnchorPane dragPane;
     @FXML private GridPane chessBoard;
     private final Map<String, Rectangle2D> textureViewpoints = new HashMap<>();
     private final Image pieceTextures = new Image(getClass().getResource("/Chess_Pieces.png").toExternalForm());
@@ -71,6 +72,8 @@ public class MainGameController {
                 BackgroundFill squareBackgroundFill = new BackgroundFill(squareColor, null, null);
                 Background squareBackground = new Background(squareBackgroundFill);
                 boardSquare.setBackground(squareBackground);
+                boardSquare.getProperties().put("row", row);
+                boardSquare.getProperties().put("col", col);
                 chessBoard.add(boardSquare, col, row);
                 boardSquares[row][col] = boardSquare;
             }
@@ -90,9 +93,88 @@ public class MainGameController {
                 }
                 ImageView piece = new ImageView(pieceTextures);
                 piece.setViewport(textureViewpoints.get(currLocation));
+                attachDragHandlers(piece);
                 boardSquares[row][col].getChildren().add(piece);
             }
         }
+    }
+
+    /**
+     * Move the specified piece onto the dragPane.
+     * @param piece The piece to be moved.
+     */
+    public void moveToDragPane(ImageView piece){
+        if (piece.getParent() != null){
+            Pane parent = (Pane) piece.getParent();
+            parent.getChildren().remove(piece);
+        }
+        dragPane.getChildren().add(piece);
+    }
+
+    /**
+     * Moves a piece onto the gridPane at the specified location.
+     * @param piece The piece to be moved {@link ImageView}.
+     * @param row The row to move it to.
+     * @param col The column to move it to.
+     */
+    public void moveToGridPane(ImageView piece, int row, int col){
+        if (piece.getParent() != null){
+            ((Pane) piece.getParent()).getChildren().remove(piece);
+        }
+        boardSquares[row][col].getChildren().clear();
+        boardSquares[row][col].getChildren().add(piece);
+    }
+
+    /**
+     * Moves the image to follow the mouse when on the dragPane.
+     * @param event The mouse event to follow. {@link MouseEvent}
+     * @param piece The piece to move to that location. {@link ImageView}
+     */
+    public void setNewImagePosition(MouseEvent event, ImageView piece){
+        Point2D pointInPane = dragPane.sceneToLocal(event.getSceneX(), event.getSceneY());
+
+        double w = piece.getLayoutBounds().getWidth();
+        double h = piece.getLayoutBounds().getHeight();
+        piece.setLayoutX(pointInPane.getX() - w / 2);
+        piece.setLayoutY(pointInPane.getY() - h / 2);
+    }
+
+    /**
+     * Converts from scene coordinates to a grid cell reference
+     * @param scenePoint The scene coordinates to be converted. Passed in as a {@link Point2D}.
+     * @return A two element int array that holds the grid cell reference (row, column)
+     */
+    public int[] scenePointToGridCell(Point2D scenePoint){
+        Point2D gridpoint = chessBoard.sceneToLocal(scenePoint);
+        int col =  (int) (gridpoint.getX() / (chessBoard.getWidth() / 8));
+        int row = (int) (gridpoint.getY() / (chessBoard.getHeight() / 8));
+        return new int[] {row, col};
+    }
+
+    /**
+     * Adds drag handlers to allow users to drag and drop pieces.
+     * @param piece The piece that the handlers will attach to. Represented as a {@link ImageView}.
+     */
+    public void attachDragHandlers(ImageView piece){
+        piece.setOnMouseEntered(event -> piece.setCursor(Cursor.HAND));
+
+        piece.setOnMousePressed(event -> {
+           moveToDragPane(piece);
+           setNewImagePosition(event, piece);
+           event.consume();
+        });
+
+        piece.setOnMouseDragged(event -> {
+            setNewImagePosition(event, piece);
+            event.consume();
+        });
+
+        piece.setOnMouseReleased(event -> {
+            Point2D scenePoint = new Point2D(event.getSceneX(), event.getSceneY());
+            int[] gridCell = scenePointToGridCell(scenePoint);
+            moveToGridPane(piece, gridCell[0], gridCell[1]);
+            piece.setCursor(Cursor.HAND);
+        });
     }
 
 
