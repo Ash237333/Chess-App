@@ -10,8 +10,8 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+
 
 public class MainGameController {
     public AnchorPane dragPane;
@@ -32,6 +32,7 @@ public class MainGameController {
     private final int NUM_OF_FILES = boardPos.length;
     private final int NUM_OF_RANKS = boardPos[0].length;
     private static final int TEXTURE_SIZE = 53;
+    private int[] currMovingPieceBoardPos = null;
 
 
     /**
@@ -159,9 +160,11 @@ public class MainGameController {
         piece.setOnMouseEntered(event -> piece.setCursor(Cursor.HAND));
 
         piece.setOnMousePressed(event -> {
-           moveToDragPane(piece);
-           setNewImagePosition(event, piece);
-           event.consume();
+            Point2D scenePoint = new Point2D(event.getSceneX(), event.getSceneY());
+            currMovingPieceBoardPos = scenePointToGridCell(scenePoint);
+            moveToDragPane(piece);
+            setNewImagePosition(event, piece);
+            event.consume();
         });
 
         piece.setOnMouseDragged(event -> {
@@ -172,8 +175,16 @@ public class MainGameController {
         piece.setOnMouseReleased(event -> {
             Point2D scenePoint = new Point2D(event.getSceneX(), event.getSceneY());
             int[] gridCell = scenePointToGridCell(scenePoint);
-            moveToGridPane(piece, gridCell[0], gridCell[1]);
+
+            if (validateMoves(gridCell[0], gridCell[1])){
+                moveToGridPane(piece, gridCell[0], gridCell[1]);
+                updateBoardPos(currMovingPieceBoardPos[0], currMovingPieceBoardPos[1], gridCell[0], gridCell[1]);
+            }
+            else{
+                moveToGridPane(piece, currMovingPieceBoardPos[0], currMovingPieceBoardPos[1]);
+            }
             piece.setCursor(Cursor.HAND);
+            currMovingPieceBoardPos = null;
         });
     }
 
@@ -188,4 +199,157 @@ public class MainGameController {
         boardSetup();
         pieceSetup();
     }
+
+    public void updateBoardPos(int originRow, int originCol, int targetRow, int targetCol){
+        boardPos[targetRow][targetCol] = boardPos[originRow][originCol];
+        boardPos[originRow][originCol] = "";
+    }
+
+    public boolean validateMoves(int targetRow, int targetCol){
+        int currRow = currMovingPieceBoardPos[0];
+        int currCol = currMovingPieceBoardPos[1];
+        String currPiece = boardPos[currRow][currCol];
+        boolean whiteFlag = currPiece.charAt(0) != 'b';
+        List<int[]> legalMoves = new ArrayList<>();
+
+        switch (currPiece.charAt(1)){
+            case 'p':
+                legalMoves.addAll(pawnLegalMoves(currRow, currCol, whiteFlag));
+                break;
+            case 'r':
+                legalMoves.addAll(rookLegalMoves(currRow, currCol, whiteFlag));
+                break;
+            case 'b':
+                legalMoves.addAll(bishopLegalMoves(currRow, currCol, whiteFlag));
+                break;
+            case 'q':
+                legalMoves.addAll(queenLegalMoves(currRow, currCol, whiteFlag));
+                break;
+            case 'k':
+                legalMoves.addAll(kingLegalMoves(currRow, currCol, whiteFlag));
+                break;
+            case 'n':
+                legalMoves.addAll(knightLegalMoves(currRow, currCol, whiteFlag));
+                break;
+        }
+
+        for (int[] move: legalMoves){
+            if ((move[0] == targetRow) && (move[1] == targetCol)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    public void addToList(int row, int col, List<int[]> legalMoves){
+        int[] legalMove = new int[] {row, col};
+        legalMoves.add(legalMove);
+    }
+
+    private boolean checkIfEmpty(int row, int col){
+        return boardPos[row][col].isEmpty();
+    }
+
+    private boolean checkIfCapturable(int row, int col, boolean whiteFlag){
+        char oppositeColor = whiteFlag ? 'b':'w';
+        return boardPos[row][col].charAt(0) == oppositeColor;
+    }
+
+    private boolean inBounds(int row, int col){
+        return (row >= 0 && row < NUM_OF_FILES && col >= 0 && col < NUM_OF_RANKS);
+    }
+
+    private List<int[]> checkSingleDirection(int originRow, int originCol, boolean whiteFlag, int range, Direction directionToCheck){
+        List<int[]> legalMoves = new ArrayList<>();
+        int currRow = originRow;
+        int currCol = originCol;
+
+        for (int i = 0; i < range; i++){
+            currRow += directionToCheck.rowStep;
+            currCol += directionToCheck.colStep;
+
+            if (!inBounds(currRow, currCol)) break;
+
+            if (checkIfEmpty(currRow, currCol)){
+                addToList(currRow, currCol, legalMoves);
+                System.out.println(currRow + "" + currCol + "empty");
+            } else {
+                if (checkIfCapturable(currRow, currCol, whiteFlag)) {
+                    addToList(currRow, currCol, legalMoves);
+                    System.out.println(currRow + "" + currCol + "capturable");
+                }
+                System.out.println(currRow + "" + currCol + "block");
+                break;
+
+            }
+        }
+        return legalMoves;
+    }
+
+    public List<int[]> rookLegalMoves(int originRow, int originCol, boolean whiteFlag){
+        List<int[]> legalMoves = new ArrayList<>();
+        for (Direction direction: Direction.values()){
+            if (direction.type == DirectionType.ORTHOGONAL){
+                legalMoves.addAll(
+                        checkSingleDirection(originRow, originCol, whiteFlag, NUM_OF_FILES, direction)
+                );
+            }
+        }
+        return legalMoves;
+    }
+
+    public List<int[]> bishopLegalMoves(int originRow, int originCol, boolean whiteFlag){
+        List<int[]> legalMoves = new ArrayList<>();
+        for (Direction direction: Direction.values()){
+            if (direction.type == DirectionType.DIAGONAL){
+                legalMoves.addAll(
+                        checkSingleDirection(originRow, originCol, whiteFlag, NUM_OF_FILES, direction)
+                );
+            }
+        }
+        return legalMoves;
+    }
+
+    public List<int[]> queenLegalMoves(int originRow, int originCol, boolean whiteFlag){
+        List<int[]> legalMoves = new ArrayList<>();
+        legalMoves.addAll(
+                rookLegalMoves(originRow,originCol,whiteFlag));
+        legalMoves.addAll(
+                bishopLegalMoves(originRow,originCol,whiteFlag));
+        return  legalMoves;
+    }
+
+    public List<int[]> kingLegalMoves(int originRow, int originCol, boolean whiteFlag){
+        List<int[]> legalMoves = new ArrayList<>();
+        for (Direction direction: Direction.values()){
+            legalMoves.addAll(
+                    checkSingleDirection(originRow, originCol, whiteFlag, 1, direction)
+            );
+        }
+        return legalMoves;
+    }
+
+    public List<int[]> pawnLegalMoves(int originRow, int originCol, boolean whiteFlag){
+        List<int[]> legalMoves = new ArrayList<>();
+        legalMoves.add(new int[] {currMovingPieceBoardPos[0] + 1, currMovingPieceBoardPos[1]});
+        return legalMoves;
+    }
+
+    public List<int[]> knightLegalMoves(int originRow, int originCol, boolean whiteFlag){
+        List<int[]> legalMoves = new ArrayList<>();
+        int[][] posOffsets = {{1,2}, {-1,-2} ,{-1,2}, {1,-2}, {2,1}, {-2,-1}, {-2,1}, {2,-1}};
+        for (int[] move : posOffsets){
+            int currRow = originRow + move[0];
+            int currCol = originCol + move[1];
+            if (!inBounds(currRow, currCol)) continue;
+
+            if (checkIfEmpty(currRow, currCol) || checkIfCapturable(currRow, currCol, whiteFlag)){
+                addToList(currRow, currCol, legalMoves);
+            }
+        }
+
+        return legalMoves;
+    }
 }
+
