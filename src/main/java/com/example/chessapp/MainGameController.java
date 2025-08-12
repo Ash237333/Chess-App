@@ -188,7 +188,6 @@ public class MainGameController {
         });
     }
 
-
     /**
      * Initialize method that is called automatically by JavaFX after
      * this controller is instantiated. This calls setup methods to set
@@ -252,6 +251,9 @@ public class MainGameController {
     }
 
     private boolean checkIfCapturable(int row, int col, boolean whiteFlag){
+        if (boardPos[row][col].isEmpty()) {
+            return false;
+        }
         char oppositeColor = whiteFlag ? 'b':'w';
         return boardPos[row][col].charAt(0) == oppositeColor;
     }
@@ -273,13 +275,10 @@ public class MainGameController {
 
             if (checkIfEmpty(currRow, currCol)){
                 addToList(currRow, currCol, legalMoves);
-                System.out.println(currRow + "" + currCol + "empty");
             } else {
                 if (checkIfCapturable(currRow, currCol, whiteFlag)) {
                     addToList(currRow, currCol, legalMoves);
-                    System.out.println(currRow + "" + currCol + "capturable");
                 }
-                System.out.println(currRow + "" + currCol + "block");
                 break;
 
             }
@@ -332,7 +331,37 @@ public class MainGameController {
 
     public List<int[]> pawnLegalMoves(int originRow, int originCol, boolean whiteFlag){
         List<int[]> legalMoves = new ArrayList<>();
-        legalMoves.add(new int[] {currMovingPieceBoardPos[0] + 1, currMovingPieceBoardPos[1]});
+        int step = whiteFlag ? -1:1;
+        int startingRow = whiteFlag ? 6:1;
+        int currRow = originRow + step;
+        int currCol = originCol;
+
+        if (checkIfEmpty(currRow, originCol)){
+            addToList(currRow, originCol, legalMoves);
+        }
+
+        if (startingRow == originRow){
+            currRow += step;
+            if (checkIfEmpty(currRow, originCol)){
+                addToList(currRow, originCol, legalMoves);
+            }
+        }
+
+        currCol += 1;
+        currRow = originRow + step;
+        if (inBounds(currRow, currCol)){
+            if (checkIfCapturable(currRow, currCol, whiteFlag)){
+                addToList(currRow, currCol, legalMoves);
+            }
+        }
+
+        currCol -= 2;
+        if (inBounds(currRow, currCol)){
+            if (checkIfCapturable(currRow, currCol, whiteFlag)){
+                addToList(currRow, currCol, legalMoves);
+            }
+        }
+
         return legalMoves;
     }
 
