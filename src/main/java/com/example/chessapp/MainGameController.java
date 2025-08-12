@@ -33,6 +33,7 @@ public class MainGameController {
     private final int NUM_OF_RANKS = boardPos[0].length;
     private static final int TEXTURE_SIZE = 53;
     private int[] currMovingPieceBoardPos = null;
+    private double turnCounter = 1.0;
 
 
     /**
@@ -55,6 +56,14 @@ public class MainGameController {
         textureViewpoints.put("bn", new Rectangle2D(TEXTURE_SIZE *3,53, TEXTURE_SIZE, TEXTURE_SIZE));
         textureViewpoints.put("br", new Rectangle2D(TEXTURE_SIZE *4,53, TEXTURE_SIZE, TEXTURE_SIZE));
         textureViewpoints.put("bp", new Rectangle2D(TEXTURE_SIZE *5,53, TEXTURE_SIZE, TEXTURE_SIZE));
+    }
+
+    public void incrementTurnCounter(){
+        turnCounter += 0.5;
+    }
+
+    public boolean whitesTurn(){
+        return turnCounter%1==0;
     }
 
     /**
@@ -162,6 +171,16 @@ public class MainGameController {
         piece.setOnMousePressed(event -> {
             Point2D scenePoint = new Point2D(event.getSceneX(), event.getSceneY());
             currMovingPieceBoardPos = scenePointToGridCell(scenePoint);
+
+            boolean whitesTurnFlag = whitesTurn();
+            String currPiece = boardPos[currMovingPieceBoardPos[0]][currMovingPieceBoardPos[1]];
+            boolean isWhitePiece = currPiece.charAt(0) == 'w';
+
+            if ((whitesTurnFlag && !isWhitePiece) || (!whitesTurnFlag && isWhitePiece)) {
+                currMovingPieceBoardPos = null;
+                return; // Don't let the player move the opponents pieces
+            }
+
             moveToDragPane(piece);
             setNewImagePosition(event, piece);
             event.consume();
@@ -173,12 +192,14 @@ public class MainGameController {
         });
 
         piece.setOnMouseReleased(event -> {
+            if (currMovingPieceBoardPos == null) return; // If piece is not ours, don't bother calculating moves
             Point2D scenePoint = new Point2D(event.getSceneX(), event.getSceneY());
             int[] gridCell = scenePointToGridCell(scenePoint);
 
             if (validateMoves(gridCell[0], gridCell[1])){
                 moveToGridPane(piece, gridCell[0], gridCell[1]);
                 updateBoardPos(currMovingPieceBoardPos[0], currMovingPieceBoardPos[1], gridCell[0], gridCell[1]);
+                incrementTurnCounter();
             }
             else{
                 moveToGridPane(piece, currMovingPieceBoardPos[0], currMovingPieceBoardPos[1]);
